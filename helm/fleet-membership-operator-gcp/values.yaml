@@ -1,0 +1,16 @@
+gcp:
+  credentials: credentials
+project:
+  branch: "[[ .Branch ]]"
+  commit: "[[ .SHA ]]"
+image:
+  name: "giantswarm/fleet-membership-operator-gcp"
+  tag: "[[ .Version ]]"
+registry:
+  domain: quay.io
+
+pod:
+  user:
+    id: 1000
+  group:
+    id: 1000
