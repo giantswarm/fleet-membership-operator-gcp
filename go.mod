@@ -1,6 +1,6 @@
 module github.com/giantswarm/fleet-membership-operator-gcp
 
-go 1.19
+go 1.18
 
 require (
 	cloud.google.com/go/gkehub v0.10.0
