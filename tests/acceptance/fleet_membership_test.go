@@ -28,23 +28,22 @@ var _ = Describe("Fleet Membership", func() {
 
 		clusterName = "acceptance-workload-cluster"
 
-		gcpCluster = &capg.GCPCluster{
-			TypeMeta: metav1.TypeMeta{},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      clusterName,
-				Namespace: "giantswarm",
-				Annotations: map[string]string{
-					controllers.AnnotationWorkloadIdentityEnabled: "true",
-				},
-			},
-			Spec: capg.GCPClusterSpec{
-				Project: gcpProject,
-			},
-		}
-
 		BeforeEach(func() {
-			Expect(ensureClusterCRExists(gcpCluster)).To(Succeed())
+			gcpCluster = &capg.GCPCluster{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      clusterName,
+					Namespace: "giantswarm",
+					Annotations: map[string]string{
+						controllers.AnnotationWorkloadIdentityEnabled: "true",
+					},
+				},
+				Spec: capg.GCPClusterSpec{
+					Project: gcpProject,
+				},
+			}
 
+			Expect(ensureClusterCRExists(gcpCluster)).To(Succeed())
 			patch := []byte(`{"status":{"ready":true}}`)
 
 			Expect(k8sClient.Status().Patch(ctx, gcpCluster, client.RawPatch(types.MergePatchType, patch))).To(Succeed())
