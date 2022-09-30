@@ -30,3 +30,5 @@ helm/rendered/*
 scripts/assets/test-credentials.json
 .DS_Store
 export-test-env.sh
+
+config/
