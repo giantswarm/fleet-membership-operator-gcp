@@ -6,14 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"google.golang.org/api/googleapi"
-	gkehubpb "google.golang.org/genproto/googleapis/cloud/gkehub/v1beta1"
+	gkehubpb "cloud.google.com/go/gkehub/apiv1beta1/gkehubpb"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -285,7 +285,7 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 
 		When("the membership is already registered", func() {
 			BeforeEach(func() {
-				responseBody := ioutil.NopCloser(bytes.NewReader([]byte(`{"value":"Already Exists"}`)))
+				responseBody := io.NopCloser(bytes.NewReader([]byte(`{"value":"Already Exists"}`)))
 				resp := &http.Response{
 					StatusCode: 409,
 					Body:       responseBody,

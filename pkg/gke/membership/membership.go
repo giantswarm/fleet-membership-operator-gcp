@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"net/http"
 
+	gkehubpb "cloud.google.com/go/gkehub/apiv1beta1/gkehubpb"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"google.golang.org/api/googleapi"
-	gkehubpb "google.golang.org/genproto/googleapis/cloud/gkehub/v1beta1"
 
 	capg "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
 )

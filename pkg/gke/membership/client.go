@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	gkehub "cloud.google.com/go/gkehub/apiv1beta1"
-	gkehubpb "google.golang.org/genproto/googleapis/cloud/gkehub/v1beta1"
+	gkehubpb "cloud.google.com/go/gkehub/apiv1beta1/gkehubpb"
 	capg "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
