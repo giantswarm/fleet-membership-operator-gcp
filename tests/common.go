@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/google/uuid"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/types"
@@ -12,6 +13,12 @@ import (
 	capi "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+func GenerateGUID(prefix string) string {
+	guid := uuid.NewString()
+
+	return fmt.Sprintf("%s-%s", prefix, guid[:13])
+}
 
 func GetEnvOrSkip(env string) string {
 	value := os.Getenv(env)
