@@ -8,6 +8,7 @@ import (
 	"io"
 	"time"
 
+	"cloud.google.com/go/gkehub/apiv1beta1/gkehubpb"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -22,8 +23,6 @@ import (
 
 	capg "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
 	capi "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
-
-	gke "github.com/giantswarm/fleet-membership-operator-gcp/pkg/gke/membership"
 )
 
 const (
@@ -42,13 +41,18 @@ const (
 	SecretKeyGoogleApplicationCredentials = "config"
 )
 
+//counterfeiter:generate . GKEMembershipClient
+type GKEMembershipClient interface {
+	RegisterMembership(ctx context.Context, cluster *capg.GCPCluster, jwks []byte) (*gkehubpb.Membership, error)
+}
+
 // GCPClusterReconciler reconciles a GCPCluster object
 type GCPClusterReconciler struct {
 	client.Client
 	Logger logr.Logger
 
 	MembershipSecretNamespace string
-	GKEMembershipReconciler   *gke.GKEMembershipReconciler
+	GKEMembershipClient       GKEMembershipClient
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=gcpclusters,verbs=get;list;watch;create;update;patch;delete
@@ -114,7 +118,7 @@ func (r *GCPClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return reconcile.Result{}, err
 	}
 
-	membership, err := r.GKEMembershipReconciler.Reconcile(ctx, gcpCluster, oidcJwks)
+	membership, err := r.GKEMembershipClient.RegisterMembership(ctx, gcpCluster, oidcJwks)
 	if err != nil {
 		logger.Error(err, "failed to reconcile gke membership")
 		return reconcile.Result{}, err
