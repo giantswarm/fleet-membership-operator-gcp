@@ -28,7 +28,7 @@ func NewClient(client *gkehub.GkeHubMembershipClient) *Client {
 	}
 }
 
-func (c *Client) RegisterMembership(ctx context.Context, cluster *capg.GCPCluster, oidcJwks []byte) (*gkehubpb.Membership, error) {
+func (c *Client) Register(ctx context.Context, cluster *capg.GCPCluster, oidcJwks []byte) (*gkehubpb.Membership, error) {
 	logger := c.getLogger(ctx)
 	logger.Info("registering membership")
 	defer logger.Info("done registering membership")
@@ -59,7 +59,7 @@ func (c *Client) RegisterMembership(ctx context.Context, cluster *capg.GCPCluste
 	return registeredMembership, err
 }
 
-func (c *Client) UnregisterMembership(ctx context.Context, cluster *capg.GCPCluster) error {
+func (c *Client) Unregister(ctx context.Context, cluster *capg.GCPCluster) error {
 	logger := c.getLogger(ctx)
 	logger.Info("unregistering membership")
 	defer logger.Info("done unregistering membership")

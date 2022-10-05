@@ -68,7 +68,7 @@ var _ = Describe("Client", func() {
 
 	Describe("Register", func() {
 		It("creates the membership", func() {
-			actualMembership, err := client.RegisterMembership(ctx, cluster, jwks)
+			actualMembership, err := client.Register(ctx, cluster, jwks)
 			Expect(err).NotTo(HaveOccurred())
 
 			getReq := &gkehubpb.GetMembershipRequest{
@@ -91,12 +91,12 @@ var _ = Describe("Client", func() {
 
 		When("the membership already exists", func() {
 			BeforeEach(func() {
-				_, err := client.RegisterMembership(ctx, cluster, jwks)
+				_, err := client.Register(ctx, cluster, jwks)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("does not return an error", func() {
-				actualMembership, err := client.RegisterMembership(ctx, cluster, jwks)
+				actualMembership, err := client.Register(ctx, cluster, jwks)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(actualMembership).NotTo(BeNil())
 				Expect(actualMembership.Authority).NotTo(BeNil())
@@ -111,7 +111,7 @@ var _ = Describe("Client", func() {
 			})
 
 			It("fails to register the membership", func() {
-				actualMembership, err := client.RegisterMembership(ctx, cluster, jwks)
+				actualMembership, err := client.Register(ctx, cluster, jwks)
 				Expect(err).To(HaveOccurred())
 				Expect(actualMembership).To(BeNil())
 			})
@@ -123,7 +123,7 @@ var _ = Describe("Client", func() {
 			})
 
 			It("fails to register the membership", func() {
-				actualMembership, err := client.RegisterMembership(ctx, cluster, jwks)
+				actualMembership, err := client.Register(ctx, cluster, jwks)
 				Expect(err).To(BeGoogleAPIErrorWithStatus(http.StatusForbidden))
 				Expect(actualMembership).To(BeNil())
 			})
@@ -132,12 +132,12 @@ var _ = Describe("Client", func() {
 
 	Describe("Unregister", func() {
 		BeforeEach(func() {
-			_, err := client.RegisterMembership(ctx, cluster, jwks)
+			_, err := client.Register(ctx, cluster, jwks)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("removes the membership", func() {
-			err := client.UnregisterMembership(ctx, cluster)
+			err := client.Unregister(ctx, cluster)
 			Expect(err).NotTo(HaveOccurred())
 
 			getReq := &gkehubpb.GetMembershipRequest{
@@ -153,7 +153,7 @@ var _ = Describe("Client", func() {
 			})
 
 			It("does not return an error", func() {
-				err := client.UnregisterMembership(ctx, cluster)
+				err := client.Unregister(ctx, cluster)
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})

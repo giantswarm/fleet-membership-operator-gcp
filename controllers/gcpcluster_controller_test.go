@@ -120,7 +120,7 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 			},
 		}
 		fakeGKEClient = new(controllersfakes.FakeGKEMembershipClient)
-		fakeGKEClient.RegisterMembershipReturns(fakeMembership, nil)
+		fakeGKEClient.RegisterReturns(fakeMembership, nil)
 
 		clusterReconciler = &controllers.GCPClusterReconciler{
 			Client:                    k8sClient,
@@ -261,7 +261,7 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 	When("the membership client fails", func() {
 		BeforeEach(func() {
 			oops := errors.New("something went wrong")
-			fakeGKEClient.RegisterMembershipReturns(nil, oops)
+			fakeGKEClient.RegisterReturns(nil, oops)
 		})
 
 		It("should return an error", func() {

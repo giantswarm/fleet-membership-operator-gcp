@@ -43,7 +43,8 @@ const (
 
 //counterfeiter:generate . GKEMembershipClient
 type GKEMembershipClient interface {
-	RegisterMembership(ctx context.Context, cluster *capg.GCPCluster, jwks []byte) (*gkehubpb.Membership, error)
+	Register(ctx context.Context, cluster *capg.GCPCluster, jwks []byte) (*gkehubpb.Membership, error)
+	Unregister(ctx context.Context, cluster *capg.GCPCluster) error
 }
 
 // GCPClusterReconciler reconciles a GCPCluster object
@@ -118,7 +119,7 @@ func (r *GCPClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return reconcile.Result{}, err
 	}
 
-	membership, err := r.GKEMembershipClient.RegisterMembership(ctx, gcpCluster, oidcJwks)
+	membership, err := r.GKEMembershipClient.Register(ctx, gcpCluster, oidcJwks)
 	if err != nil {
 		logger.Error(err, "failed to reconcile gke membership")
 		return reconcile.Result{}, err
