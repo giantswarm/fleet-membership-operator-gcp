@@ -66,65 +66,96 @@ var _ = Describe("Client", func() {
 		))
 	})
 
-	It("creates the membership", func() {
-		actualMembership, err := client.RegisterMembership(ctx, cluster, jwks)
-		Expect(err).NotTo(HaveOccurred())
+	Describe("Register", func() {
+		It("creates the membership", func() {
+			actualMembership, err := client.RegisterMembership(ctx, cluster, jwks)
+			Expect(err).NotTo(HaveOccurred())
 
-		getReq := &gkehubpb.GetMembershipRequest{
-			Name: membershipName,
-		}
-		fleetMembership, err := gcpClient.GetMembership(ctx, getReq)
-		Expect(err).NotTo(HaveOccurred())
+			getReq := &gkehubpb.GetMembershipRequest{
+				Name: membershipName,
+			}
+			fleetMembership, err := gcpClient.GetMembership(ctx, getReq)
+			Expect(err).NotTo(HaveOccurred())
 
-		Expect(fleetMembership.Authority).NotTo(BeNil())
-		Expect(fleetMembership.Authority.Issuer).To(Equal(membership.KubernetesIssuer))
-		Expect(fleetMembership.Authority.OidcJwks).To(Equal(jwks))
-		Expect(fleetMembership.Authority.IdentityProvider).NotTo(BeEmpty())
-		Expect(fleetMembership.Authority.WorkloadIdentityPool).NotTo(BeEmpty())
+			Expect(fleetMembership.Authority).NotTo(BeNil())
+			Expect(fleetMembership.Authority.Issuer).To(Equal(membership.KubernetesIssuer))
+			Expect(fleetMembership.Authority.OidcJwks).To(Equal(jwks))
+			Expect(fleetMembership.Authority.IdentityProvider).NotTo(BeEmpty())
+			Expect(fleetMembership.Authority.WorkloadIdentityPool).NotTo(BeEmpty())
 
-		Expect(actualMembership).NotTo(BeNil())
-		Expect(actualMembership.Authority).NotTo(BeNil())
-		Expect(actualMembership.Authority.WorkloadIdentityPool).To(Equal(fleetMembership.Authority.WorkloadIdentityPool))
-		Expect(actualMembership.Authority.IdentityProvider).To(Equal(fleetMembership.Authority.IdentityProvider))
+			Expect(actualMembership).NotTo(BeNil())
+			Expect(actualMembership.Authority).NotTo(BeNil())
+			Expect(actualMembership.Authority.WorkloadIdentityPool).To(Equal(fleetMembership.Authority.WorkloadIdentityPool))
+			Expect(actualMembership.Authority.IdentityProvider).To(Equal(fleetMembership.Authority.IdentityProvider))
+		})
+
+		When("the membership already exists", func() {
+			BeforeEach(func() {
+				_, err := client.RegisterMembership(ctx, cluster, jwks)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("does not return an error", func() {
+				actualMembership, err := client.RegisterMembership(ctx, cluster, jwks)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(actualMembership).NotTo(BeNil())
+				Expect(actualMembership.Authority).NotTo(BeNil())
+				Expect(actualMembership.Authority.IdentityProvider).NotTo(BeEmpty())
+				Expect(actualMembership.Authority.WorkloadIdentityPool).NotTo(BeEmpty())
+			})
+		})
+
+		When("the jwks are invalid", func() {
+			BeforeEach(func() {
+				jwks = []byte(`{"keys": [{"not-valid": true}]}`)
+			})
+
+			It("fails to register the membership", func() {
+				actualMembership, err := client.RegisterMembership(ctx, cluster, jwks)
+				Expect(err).To(HaveOccurred())
+				Expect(actualMembership).To(BeNil())
+			})
+		})
+
+		When("the client has insufficient premissions in the clusters project", func() {
+			BeforeEach(func() {
+				cluster.Spec.Project = "something-123"
+			})
+
+			It("fails to register the membership", func() {
+				actualMembership, err := client.RegisterMembership(ctx, cluster, jwks)
+				Expect(err).To(BeGoogleAPIErrorWithStatus(http.StatusForbidden))
+				Expect(actualMembership).To(BeNil())
+			})
+		})
 	})
 
-	When("the membership already exists", func() {
+	Describe("Unregister", func() {
 		BeforeEach(func() {
 			_, err := client.RegisterMembership(ctx, cluster, jwks)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("does not return an error", func() {
-			actualMembership, err := client.RegisterMembership(ctx, cluster, jwks)
+		It("removes the membership", func() {
+			err := client.UnregisterMembership(ctx, cluster)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(actualMembership).NotTo(BeNil())
-			Expect(actualMembership.Authority).NotTo(BeNil())
-			Expect(actualMembership.Authority.IdentityProvider).NotTo(BeEmpty())
-			Expect(actualMembership.Authority.WorkloadIdentityPool).NotTo(BeEmpty())
-		})
-	})
 
-	When("the jwks are invalid", func() {
-		BeforeEach(func() {
-			jwks = []byte(`{"keys": [{"not-valid": true}]}`)
+			getReq := &gkehubpb.GetMembershipRequest{
+				Name: membershipName,
+			}
+			_, err = gcpClient.GetMembership(ctx, getReq)
+			Expect(err).To(BeGoogleAPIErrorWithStatus(http.StatusNotFound))
 		})
 
-		It("fails to register the membership", func() {
-			actualMembership, err := client.RegisterMembership(ctx, cluster, jwks)
-			Expect(err).To(HaveOccurred())
-			Expect(actualMembership).To(BeNil())
-		})
-	})
+		When("the cluster is already removed", func() {
+			BeforeEach(func() {
+				cluster.Name = "does-not-exist"
+			})
 
-	When("the client has insufficient premissions in the clusters project", func() {
-		BeforeEach(func() {
-			cluster.Spec.Project = "something-123"
-		})
-
-		It("fails to register the membership", func() {
-			actualMembership, err := client.RegisterMembership(ctx, cluster, jwks)
-			Expect(err).To(BeGoogleAPIErrorWithStatus(http.StatusForbidden))
-			Expect(actualMembership).To(BeNil())
+			It("does not return an error", func() {
+				err := client.UnregisterMembership(ctx, cluster)
+				Expect(err).NotTo(HaveOccurred())
+			})
 		})
 	})
 })
