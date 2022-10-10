@@ -13,7 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -21,6 +21,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/giantswarm/fleet-membership-operator-gcp/types"
 
 	capg "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
 	capi "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
@@ -117,7 +119,7 @@ func (r *GCPClusterReconciler) reconcileNormal(ctx context.Context, logger logr.
 	}
 
 	kubeadmControlPlane := &capi.KubeadmControlPlane{}
-	nsName := types.NamespacedName{
+	nsName := k8stypes.NamespacedName{
 		Name:      gcpCluster.Name,
 		Namespace: gcpCluster.Namespace,
 	}
@@ -166,7 +168,10 @@ func (r *GCPClusterReconciler) reconcileNormal(ctx context.Context, logger logr.
 		return reconcile.Result{}, err
 	}
 
-	membershipJson, err := json.Marshal(membership)
+	membershipJson, err := json.Marshal(types.Membership{
+		IdentityProvider:     membership.Authority.IdentityProvider,
+		WorkloadIdentityPool: membership.Authority.WorkloadIdentityPool,
+	})
 	if err != nil {
 		logger.Error(err, "failed to marshal membership json")
 		return reconcile.Result{}, err
@@ -204,7 +209,7 @@ func (r *GCPClusterReconciler) getWorkloadClusterConfig(ctx context.Context, log
 	secretName := fmt.Sprintf("%s-kubeconfig", cluster.Name)
 	logger = logger.WithValues("secret-name", secretName)
 
-	err := r.runtimeClient.Get(ctx, types.NamespacedName{
+	err := r.runtimeClient.Get(ctx, k8stypes.NamespacedName{
 		Name:      secretName,
 		Namespace: cluster.Namespace,
 	}, secret)

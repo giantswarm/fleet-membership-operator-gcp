@@ -4,17 +4,17 @@ import (
 	"context"
 	"encoding/json"
 
-	"cloud.google.com/go/gkehub/apiv1beta1/gkehubpb"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	capg "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/giantswarm/fleet-membership-operator-gcp/controllers"
+	"github.com/giantswarm/fleet-membership-operator-gcp/types"
 )
 
 var _ = Describe("Fleet Membership", func() {
@@ -50,7 +50,7 @@ var _ = Describe("Fleet Membership", func() {
 
 		patch := []byte(`{"status":{"ready":true}}`)
 
-		Expect(k8sClient.Status().Patch(ctx, gcpCluster, client.RawPatch(types.MergePatchType, patch))).To(Succeed())
+		Expect(k8sClient.Status().Patch(ctx, gcpCluster, client.RawPatch(k8stypes.MergePatchType, patch))).To(Succeed())
 	})
 
 	AfterEach(func() {
@@ -79,41 +79,24 @@ var _ = Describe("Fleet Membership", func() {
 		}, "120s").Should(Succeed())
 
 		data := membershipSecret.Data[controllers.SecretKeyGoogleApplicationCredentials]
-		var actualMembership gkehubpb.Membership
+		var actualMembership types.Membership
 		Expect(json.Unmarshal(data, &actualMembership)).To(Succeed())
+		Expect(actualMembership.IdentityProvider).NotTo(BeEmpty())
+		Expect(actualMembership.WorkloadIdentityPool).NotTo(BeEmpty())
 
 		By("not preventing cluster deletion")
 
 		Expect(k8sClient.Delete(ctx, gcpCluster)).To(Succeed())
 		Eventually(func(g Gomega) bool {
-			err := k8sClient.Get(ctx, types.NamespacedName{
+			err := k8sClient.Get(ctx, k8stypes.NamespacedName{
 				Name:      gcpCluster.Name,
 				Namespace: gcpCluster.Namespace,
 			}, &capg.GCPCluster{})
 			if !k8serrors.IsNotFound(err) {
-				Expect(err).NotTo(HaveOccurred())
+				g.Expect(err).NotTo(HaveOccurred())
 				return false
 			}
 			return true
 		}, "120s").Should(BeTrue())
 	})
 })
-
-func ensureClusterCRExists(gcpCluster *capg.GCPCluster) error {
-	ctx := context.Background()
-
-	err := k8sClient.Get(ctx, client.ObjectKey{
-		Name:      gcpCluster.Name,
-		Namespace: gcpCluster.Namespace,
-	}, gcpCluster)
-
-	if k8serrors.IsNotFound(err) {
-		err = k8sClient.Create(context.Background(), gcpCluster)
-		if k8serrors.IsAlreadyExists(err) {
-			return nil
-		}
-		return err
-	}
-
-	return err
-}
