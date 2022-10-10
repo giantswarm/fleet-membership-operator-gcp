@@ -19,6 +19,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	capg "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
@@ -49,11 +50,18 @@ type GKEMembershipClient interface {
 
 // GCPClusterReconciler reconciles a GCPCluster object
 type GCPClusterReconciler struct {
-	client.Client
-	Logger logr.Logger
-
 	MembershipSecretNamespace string
-	GKEMembershipClient       GKEMembershipClient
+
+	runtimeClient       client.Client
+	GKEMembershipClient GKEMembershipClient
+}
+
+func NewGCPClusterReconciler(membershipSecretNamespace string, runtimeClient client.Client, membershipClient GKEMembershipClient) *GCPClusterReconciler {
+	return &GCPClusterReconciler{
+		runtimeClient:             runtimeClient,
+		MembershipSecretNamespace: membershipSecretNamespace,
+		GKEMembershipClient:       membershipClient,
+	}
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=gcpclusters,verbs=get;list;watch;create;update;patch;delete
@@ -61,11 +69,13 @@ type GCPClusterReconciler struct {
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=gcpclusters/finalizers,verbs=update
 
 func (r *GCPClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := r.Logger.WithValues("gcpcluster", req.NamespacedName)
+	logger := log.FromContext(ctx)
+	logger = logger.WithName("gcpcluster-reconciler")
+	logger.Info("Reconciling cluster")
+	defer logger.Info("Finished reconciling cluster")
 
 	gcpCluster := &capg.GCPCluster{}
-
-	err := r.Get(ctx, req.NamespacedName, gcpCluster)
+	err := r.runtimeClient.Get(ctx, req.NamespacedName, gcpCluster)
 	if err != nil {
 		logger.Error(err, "could not get gcp cluster")
 		return reconcile.Result{}, nil
@@ -77,6 +87,29 @@ func (r *GCPClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return reconcile.Result{}, nil
 	}
 
+	if !gcpCluster.DeletionTimestamp.IsZero() {
+		return r.reconcileDelete(ctx, logger, gcpCluster)
+	}
+
+	return r.reconcileNormal(ctx, logger, gcpCluster)
+}
+
+func (r *GCPClusterReconciler) reconcileDelete(ctx context.Context, logger logr.Logger, gcpCluster *capg.GCPCluster) (reconcile.Result, error) {
+	err := r.GKEMembershipClient.Unregister(ctx, gcpCluster)
+	if err != nil {
+		logger.Error(err, "failed to unregister cluster membership")
+		return reconcile.Result{}, err
+	}
+
+	err = r.removeFinalizer(ctx, gcpCluster)
+	if err != nil {
+		logger.Error(err, "failed to add finalizer to cluster")
+		return reconcile.Result{}, err
+	}
+	return reconcile.Result{}, nil
+}
+
+func (r *GCPClusterReconciler) reconcileNormal(ctx context.Context, logger logr.Logger, gcpCluster *capg.GCPCluster) (reconcile.Result, error) {
 	if !gcpCluster.Status.Ready {
 		message := fmt.Sprintf("skipping Cluster %s because its not yet ready", gcpCluster.Name)
 		logger.Info(message)
@@ -84,7 +117,11 @@ func (r *GCPClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	kubeadmControlPlane := &capi.KubeadmControlPlane{}
-	err = r.Get(ctx, req.NamespacedName, kubeadmControlPlane)
+	nsName := types.NamespacedName{
+		Name:      gcpCluster.Name,
+		Namespace: gcpCluster.Namespace,
+	}
+	err := r.runtimeClient.Get(ctx, nsName, kubeadmControlPlane)
 	if err != nil {
 		logger.Error(err, "could not get the kubeadm control plane")
 		return reconcile.Result{}, err
@@ -99,7 +136,7 @@ func (r *GCPClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}, nil
 	}
 
-	config, err := r.getWorkloadClusterConfig(ctx, gcpCluster, req.Namespace)
+	config, err := r.getWorkloadClusterConfig(ctx, logger, gcpCluster)
 	if err != nil {
 		logger.Error(err, "failed to get kubeconfig")
 		return reconcile.Result{}, err
@@ -111,11 +148,15 @@ func (r *GCPClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return reconcile.Result{}, err
 	}
 
-	logger.Info(fmt.Sprintf("Cluster name is %s", gcpCluster.Name))
-
-	oidcJwks, err := r.getOIDCJWKS(config)
+	oidcJwks, err := r.getOIDCJWKS(logger, config)
 	if err != nil {
 		logger.Error(err, "failed to get cluster oidc jwks")
+		return reconcile.Result{}, err
+	}
+
+	err = r.addFinalizer(ctx, gcpCluster)
+	if err != nil {
+		logger.Error(err, "failed to add finalizer to cluster")
 		return reconcile.Result{}, err
 	}
 
@@ -141,50 +182,65 @@ func (r *GCPClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	return ctrl.Result{}, nil
 }
 
+func (r *GCPClusterReconciler) addFinalizer(ctx context.Context, cluster *capg.GCPCluster) error {
+	originalCluster := cluster.DeepCopy()
+	controllerutil.AddFinalizer(cluster, FinalizerMembership)
+	return r.runtimeClient.Patch(ctx, cluster, client.MergeFrom(originalCluster))
+}
+
+func (r *GCPClusterReconciler) removeFinalizer(ctx context.Context, cluster *capg.GCPCluster) error {
+	originalCluster := cluster.DeepCopy()
+	controllerutil.RemoveFinalizer(cluster, FinalizerMembership)
+	return r.runtimeClient.Patch(ctx, cluster, client.MergeFrom(originalCluster))
+}
+
 func (r *GCPClusterReconciler) hasWorkloadIdentityEnabled(cluster *capg.GCPCluster) bool {
 	_, exists := cluster.Annotations[AnnotationWorkloadIdentityEnabled]
 	return exists
 }
 
-func (r *GCPClusterReconciler) getWorkloadClusterConfig(ctx context.Context, cluster *capg.GCPCluster, namespace string) (*rest.Config, error) {
+func (r *GCPClusterReconciler) getWorkloadClusterConfig(ctx context.Context, logger logr.Logger, cluster *capg.GCPCluster) (*rest.Config, error) {
 	secret := &corev1.Secret{}
 	secretName := fmt.Sprintf("%s-kubeconfig", cluster.Name)
+	logger = logger.WithValues("secret-name", secretName)
 
-	err := r.Get(ctx, types.NamespacedName{
+	err := r.runtimeClient.Get(ctx, types.NamespacedName{
 		Name:      secretName,
-		Namespace: namespace,
+		Namespace: cluster.Namespace,
 	}, secret)
 	if err != nil {
-		r.Logger.Error(err, "could not get cluster secret")
+		logger.Error(err, "could not get cluster secret")
 		return nil, err
 	}
 
 	data, ok := secret.Data[KeyWorkloadClusterConfig]
 	if !ok {
 		err = errors.New("cluster kubeconfig data is missing")
+		logger.Error(err, "failed to get kubeconfig")
 		return nil, err
 	}
 
 	config, err := clientcmd.NewClientConfigFromBytes(data)
 	if err != nil {
+		logger.Error(err, "failed to build client from kubeconfig")
 		return nil, err
 	}
 
 	return config.ClientConfig()
 }
 
-func (r *GCPClusterReconciler) getOIDCJWKS(config *rest.Config) ([]byte, error) {
+func (r *GCPClusterReconciler) getOIDCJWKS(logger logr.Logger, config *rest.Config) ([]byte, error) {
 	reqUrl := fmt.Sprintf("%s/openid/v1/jwks", config.Host)
 
 	httpClient, err := rest.HTTPClientFor(config)
 	if err != nil {
-		r.Logger.Error(err, "failed to create http client")
+		logger.Error(err, "failed to create http client")
 		return []byte{}, err
 	}
 
 	resp, err := httpClient.Get(reqUrl)
 	if err != nil {
-		r.Logger.Error(err, "failed to fetch jwks")
+		logger.Error(err, "failed to fetch jwks")
 		return []byte{}, err
 	}
 
@@ -192,7 +248,7 @@ func (r *GCPClusterReconciler) getOIDCJWKS(config *rest.Config) ([]byte, error) 
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		r.Logger.Error(err, "failed to read oidc jwks response body")
+		logger.Error(err, "failed to read oidc jwks response body")
 		return []byte{}, err
 	}
 
@@ -214,12 +270,6 @@ func (r *GCPClusterReconciler) generateMembershipSecret(membershipJson []byte, c
 		StringData: map[string]string{
 			SecretKeyGoogleApplicationCredentials: membershipJsonString,
 		},
-	}
-
-	ok := controllerutil.AddFinalizer(secret, FinalizerMembership)
-	if !ok {
-		message := fmt.Sprintf("failed to add finalizer for %s membership secret", cluster.Name)
-		r.Logger.Info(message)
 	}
 
 	return secret

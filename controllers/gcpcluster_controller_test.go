@@ -19,7 +19,6 @@ import (
 	capi "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/giantswarm/fleet-membership-operator-gcp/controllers"
@@ -122,12 +121,7 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 		fakeGKEClient = new(controllersfakes.FakeGKEMembershipClient)
 		fakeGKEClient.RegisterReturns(fakeMembership, nil)
 
-		clusterReconciler = &controllers.GCPClusterReconciler{
-			Client:                    k8sClient,
-			Logger:                    logf.Log,
-			MembershipSecretNamespace: namespace,
-			GKEMembershipClient:       fakeGKEClient,
-		}
+		clusterReconciler = controllers.NewGCPClusterReconciler(namespace, k8sClient, fakeGKEClient)
 	})
 
 	JustBeforeEach(func() {
@@ -143,6 +137,17 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 	It("reconciles successfully", func() {
 		Expect(reconcilErr).NotTo(HaveOccurred())
 		Expect(result.Requeue).To(BeFalse())
+	})
+
+	It("sets a finalizer on the cluster", func() {
+		cluster := &capg.GCPCluster{}
+		err := k8sClient.Get(ctx, types.NamespacedName{
+			Name:      clusterName,
+			Namespace: namespace,
+		}, cluster)
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cluster.Finalizers).To(ContainElement(controllers.FinalizerMembership))
 	})
 
 	It("creates a gke membership secret with the correct credentials", func() {
@@ -190,6 +195,50 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 
 			Expect(err).To(HaveOccurred())
 			Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+		})
+	})
+
+	When("the cluster is marked for deletion", func() {
+		BeforeEach(func() {
+			originalCluster := gcpCluster.DeepCopy()
+			controllerutil.AddFinalizer(gcpCluster, controllers.FinalizerMembership)
+			err := k8sClient.Patch(ctx, gcpCluster, client.MergeFrom(originalCluster))
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(k8sClient.Delete(ctx, gcpCluster)).To(Succeed())
+		})
+
+		It("unregisteres the cluster", func() {
+			Expect(fakeGKEClient.UnregisterCallCount()).To(Equal(1))
+		})
+
+		It("removes the finalizer", func() {
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name:      clusterName,
+				Namespace: namespace,
+			}, &capg.GCPCluster{})
+			Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+		})
+
+		When("unregistering the client fails", func() {
+			BeforeEach(func() {
+				fakeGKEClient.UnregisterReturns(errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				Expect(reconcilErr).To(MatchError(ContainSubstring("boom")))
+			})
+
+			It("does not remove the finalizer", func() {
+				cluster := &capg.GCPCluster{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      clusterName,
+					Namespace: namespace,
+				}, cluster)
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(cluster.Finalizers).To(ContainElement(controllers.FinalizerMembership))
+			})
 		})
 	})
 
