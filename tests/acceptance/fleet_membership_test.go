@@ -53,6 +53,18 @@ var _ = Describe("Fleet Membership", func() {
 		Expect(k8sClient.Status().Patch(ctx, gcpCluster, client.RawPatch(types.MergePatchType, patch))).To(Succeed())
 	})
 
+	AfterEach(func() {
+		membershipSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      controllers.MembershipSecretName,
+				Namespace: controllers.DefaultMembershipSecretNamespace,
+			},
+		}
+		err := workloadClient.Delete(ctx, membershipSecret)
+
+		Expect(err).NotTo(HaveOccurred())
+	})
+
 	It("reconciles the cluster", func() {
 		By("creating a membership secret on the workload cluster")
 
