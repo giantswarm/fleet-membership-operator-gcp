@@ -11,3 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add integration tests
 - Add initial reconciler. Copied over from `workload-identity-operator-gcp` 
+- Added delete to reconciler
+
+[Unreleased]: https://github.com/giantswarm/fleet-membership-operator-gcp/tree/main
