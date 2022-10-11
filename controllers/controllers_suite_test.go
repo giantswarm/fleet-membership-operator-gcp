@@ -112,7 +112,7 @@ func ensureNamespaceExists(ctx context.Context) error {
 	namespaceObj := &corev1.Namespace{}
 	namespaceObj.Name = workload.DefaultMembershipDataNamespace
 
-	err := k8sClient.Create(context.Background(), namespaceObj)
+	err := k8sClient.Create(ctx, namespaceObj)
 	if k8serrors.IsAlreadyExists(err) {
 		return nil
 	}
