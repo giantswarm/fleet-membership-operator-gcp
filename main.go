@@ -27,6 +27,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	gke "github.com/giantswarm/fleet-membership-operator-gcp/pkg/gke/membership"
+	"github.com/giantswarm/fleet-membership-operator-gcp/pkg/workload"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -96,7 +97,7 @@ func main() {
 
 	gkeClient := gke.NewClient(gkehubClient)
 	reconciler := controllers.NewGCPClusterReconciler(
-		controllers.DefaultMembershipSecretNamespace,
+		workload.DefaultMembershipDataNamespace,
 		mgr.GetClient(),
 		gkeClient,
 	)

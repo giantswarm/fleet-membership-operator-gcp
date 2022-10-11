@@ -24,6 +24,7 @@ import (
 	"github.com/giantswarm/fleet-membership-operator-gcp/controllers"
 	"github.com/giantswarm/fleet-membership-operator-gcp/controllers/controllersfakes"
 	"github.com/giantswarm/fleet-membership-operator-gcp/pkg/gke/membership"
+	"github.com/giantswarm/fleet-membership-operator-gcp/pkg/workload"
 	"github.com/giantswarm/fleet-membership-operator-gcp/tests"
 	"github.com/giantswarm/fleet-membership-operator-gcp/types"
 )
@@ -154,17 +155,15 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 	It("creates a gke membership secret with the correct credentials", func() {
 		secret := &corev1.Secret{}
 		err := k8sClient.Get(ctx, k8stypes.NamespacedName{
-			Name:      controllers.MembershipSecretName,
+			Name:      workload.MembershipSecretName,
 			Namespace: namespace,
 		}, secret)
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(secret).ToNot(BeNil())
-		Expect(secret.Annotations).Should(HaveKeyWithValue(controllers.AnnoationMembershipSecretCreatedBy, clusterName))
-		Expect(secret.Annotations).Should(HaveKeyWithValue(controllers.AnnotationSecretManagedBy, controllers.SecretManagedBy))
 		Expect(controllerutil.ContainsFinalizer(secret, controllers.FinalizerMembership))
 
-		data := secret.Data[controllers.SecretKeyGoogleApplicationCredentials]
+		data := secret.Data[workload.SecretKeyGoogleApplicationCredentials]
 
 		var actualMembership types.Membership
 		Expect(json.Unmarshal(data, &actualMembership)).To(Succeed())
@@ -188,7 +187,7 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 		It("should not create a membership secret", func() {
 			secret := &corev1.Secret{}
 			err := k8sClient.Get(ctx, k8stypes.NamespacedName{
-				Name:      controllers.MembershipSecretName,
+				Name:      workload.MembershipSecretName,
 				Namespace: namespace,
 			}, secret)
 
@@ -319,7 +318,7 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 		It("should not create a membership secret", func() {
 			secret := &corev1.Secret{}
 			err := k8sClient.Get(ctx, k8stypes.NamespacedName{
-				Name:      controllers.MembershipSecretName,
+				Name:      workload.MembershipSecretName,
 				Namespace: namespace,
 			}, secret)
 
@@ -332,8 +331,8 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 		BeforeEach(func() {
 			membershipSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      controllers.MembershipSecretName,
-					Namespace: controllers.DefaultMembershipSecretNamespace,
+					Name:      workload.MembershipSecretName,
+					Namespace: workload.DefaultMembershipDataNamespace,
 				},
 			}
 
