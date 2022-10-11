@@ -12,7 +12,7 @@ readonly IMG=${IMG:-quay.io/giantswarm/fleet-membership-operator-gcp:dev}
 readonly WORKLOAD_CLUSTER="acceptance-workload-cluster"
 readonly SECRET_NAME="$WORKLOAD_CLUSTER-kubeconfig"
 
-clusterctl get kubeconfig -n $NAMESPACE $WORKLOAD_CLUSTER >"$HOME/.kube/workload-cluster.yaml"
+clusterctl get kubeconfig --kubeconfig="$HOME/.kube/acceptance.yml" -n $NAMESPACE $WORKLOAD_CLUSTER >"$HOME/.kube/workload-cluster.yaml"
 
 KUBECTL="kubectl --kubeconfig=$HOME/.kube/workload-cluster.yaml"
 $KUBECTL create namespace giantswarm || true
@@ -20,8 +20,8 @@ $KUBECTL create namespace giantswarm || true
 $KUBECTL apply -f https://docs.projectcalico.org/v3.21/manifests/calico.yaml
 
 if [[ $OSTYPE == "darwin"* ]]; then
-    # Point the kubeconfig to the exposed port of the load balancer, rather than the inaccessible container IP.
-    sed -i -e "s/server .*/server: https:\/\/$(docker port ${WORKLOAD_CLUSTER}-lb 6443/tcp | sed "s/0.0.0.0/127.0.0.1/")/g" "$HOME/.kube/workload-cluster.yaml"
+  # Point the kubeconfig to the exposed port of the load balancer, rather than the inaccessible container IP.
+  sed -i -e "s/server .*/server: https:\/\/$(docker port ${WORKLOAD_CLUSTER}-lb 6443/tcp | sed "s/0.0.0.0/127.0.0.1/")/g" "$HOME/.kube/workload-cluster.yaml"
 fi
 
 helm repo add jetstack https://charts.jetstack.io

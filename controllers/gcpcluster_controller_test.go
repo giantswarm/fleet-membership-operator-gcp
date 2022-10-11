@@ -7,25 +7,24 @@ import (
 	"fmt"
 	"time"
 
-	gkehubpb "cloud.google.com/go/gkehub/apiv1beta1/gkehubpb"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
 	capg "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
 	capi "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/giantswarm/fleet-membership-operator-gcp/controllers"
 	"github.com/giantswarm/fleet-membership-operator-gcp/controllers/controllersfakes"
-	"github.com/giantswarm/fleet-membership-operator-gcp/pkg/gke/membership"
+	"github.com/giantswarm/fleet-membership-operator-gcp/pkg/workload"
 	"github.com/giantswarm/fleet-membership-operator-gcp/tests"
+	"github.com/giantswarm/fleet-membership-operator-gcp/types"
 )
 
 var _ = Describe("GCPCluster Reconcilation", func() {
@@ -110,29 +109,19 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 		}
 		Expect(k8sClient.Create(ctx, kubeconfigSecret)).To(Succeed())
 
-		fakeMembership := &gkehubpb.Membership{
-			Name: "/project/the-project/locations/global/membership/the-membership",
-			Authority: &gkehubpb.Authority{
-				Issuer:               membership.KubernetesIssuer,
-				WorkloadIdentityPool: "the-workload-id-pool",
-				IdentityProvider:     "the-identity-provider",
-				OidcJwks:             []byte("the jwks"),
-			},
+		fakeMembership := types.MembershipData{
+			WorkloadIdentityPool: "the-workload-id-pool",
+			IdentityProvider:     "the-identity-provider",
 		}
 		fakeGKEClient = new(controllersfakes.FakeGKEMembershipClient)
-		fakeGKEClient.RegisterMembershipReturns(fakeMembership, nil)
+		fakeGKEClient.RegisterReturns(fakeMembership, nil)
 
-		clusterReconciler = &controllers.GCPClusterReconciler{
-			Client:                    k8sClient,
-			Logger:                    logf.Log,
-			MembershipSecretNamespace: namespace,
-			GKEMembershipClient:       fakeGKEClient,
-		}
+		clusterReconciler = controllers.NewGCPClusterReconciler(namespace, k8sClient, fakeGKEClient)
 	})
 
 	JustBeforeEach(func() {
 		req := reconcile.Request{
-			NamespacedName: types.NamespacedName{
+			NamespacedName: k8stypes.NamespacedName{
 				Name:      gcpCluster.Name,
 				Namespace: gcpCluster.Namespace,
 			},
@@ -145,28 +134,35 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 		Expect(result.Requeue).To(BeFalse())
 	})
 
+	It("sets a finalizer on the cluster", func() {
+		cluster := &capg.GCPCluster{}
+		err := k8sClient.Get(ctx, k8stypes.NamespacedName{
+			Name:      clusterName,
+			Namespace: namespace,
+		}, cluster)
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cluster.Finalizers).To(ContainElement(controllers.FinalizerMembership))
+	})
+
 	It("creates a gke membership secret with the correct credentials", func() {
 		secret := &corev1.Secret{}
-		err := k8sClient.Get(ctx, types.NamespacedName{
-			Name:      controllers.MembershipSecretName,
+		err := k8sClient.Get(ctx, k8stypes.NamespacedName{
+			Name:      workload.MembershipSecretName,
 			Namespace: namespace,
 		}, secret)
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(secret).ToNot(BeNil())
-		Expect(secret.Annotations).Should(HaveKeyWithValue(controllers.AnnoationMembershipSecretCreatedBy, clusterName))
-		Expect(secret.Annotations).Should(HaveKeyWithValue(controllers.AnnotationSecretManagedBy, controllers.SecretManagedBy))
 		Expect(controllerutil.ContainsFinalizer(secret, controllers.FinalizerMembership))
 
-		data := secret.Data[controllers.SecretKeyGoogleApplicationCredentials]
+		data := secret.Data[workload.SecretKeyGoogleApplicationCredentials]
 
-		var actualMembership gkehubpb.Membership
+		var actualMembership types.MembershipData
 		Expect(json.Unmarshal(data, &actualMembership)).To(Succeed())
 
-		Expect(actualMembership.Name).To(Equal("/project/the-project/locations/global/membership/the-membership"))
-		Expect(actualMembership.Authority.Issuer).To(Equal(membership.KubernetesIssuer))
-		Expect(actualMembership.Authority.WorkloadIdentityPool).To(Equal("the-workload-id-pool"))
-		Expect(actualMembership.Authority.IdentityProvider).To(Equal("the-identity-provider"))
+		Expect(actualMembership.WorkloadIdentityPool).To(Equal("the-workload-id-pool"))
+		Expect(actualMembership.IdentityProvider).To(Equal("the-identity-provider"))
 	})
 
 	When("workload identity is not enabled", func() {
@@ -183,13 +179,57 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 
 		It("should not create a membership secret", func() {
 			secret := &corev1.Secret{}
-			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      controllers.MembershipSecretName,
+			err := k8sClient.Get(ctx, k8stypes.NamespacedName{
+				Name:      workload.MembershipSecretName,
 				Namespace: namespace,
 			}, secret)
 
 			Expect(err).To(HaveOccurred())
 			Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+		})
+	})
+
+	When("the cluster is marked for deletion", func() {
+		BeforeEach(func() {
+			originalCluster := gcpCluster.DeepCopy()
+			controllerutil.AddFinalizer(gcpCluster, controllers.FinalizerMembership)
+			err := k8sClient.Patch(ctx, gcpCluster, client.MergeFrom(originalCluster))
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(k8sClient.Delete(ctx, gcpCluster)).To(Succeed())
+		})
+
+		It("unregisteres the cluster", func() {
+			Expect(fakeGKEClient.UnregisterCallCount()).To(Equal(1))
+		})
+
+		It("removes the finalizer", func() {
+			err := k8sClient.Get(ctx, k8stypes.NamespacedName{
+				Name:      clusterName,
+				Namespace: namespace,
+			}, &capg.GCPCluster{})
+			Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+		})
+
+		When("unregistering the client fails", func() {
+			BeforeEach(func() {
+				fakeGKEClient.UnregisterReturns(errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				Expect(reconcilErr).To(MatchError(ContainSubstring("boom")))
+			})
+
+			It("does not remove the finalizer", func() {
+				cluster := &capg.GCPCluster{}
+				err := k8sClient.Get(ctx, k8stypes.NamespacedName{
+					Name:      clusterName,
+					Namespace: namespace,
+				}, cluster)
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(cluster.Finalizers).To(ContainElement(controllers.FinalizerMembership))
+			})
 		})
 	})
 
@@ -261,7 +301,7 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 	When("the membership client fails", func() {
 		BeforeEach(func() {
 			oops := errors.New("something went wrong")
-			fakeGKEClient.RegisterMembershipReturns(nil, oops)
+			fakeGKEClient.RegisterReturns(types.MembershipData{}, oops)
 		})
 
 		It("should return an error", func() {
@@ -270,8 +310,8 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 
 		It("should not create a membership secret", func() {
 			secret := &corev1.Secret{}
-			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      controllers.MembershipSecretName,
+			err := k8sClient.Get(ctx, k8stypes.NamespacedName{
+				Name:      workload.MembershipSecretName,
 				Namespace: namespace,
 			}, secret)
 
@@ -284,8 +324,8 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 		BeforeEach(func() {
 			membershipSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      controllers.MembershipSecretName,
-					Namespace: controllers.DefaultMembershipSecretNamespace,
+					Name:      workload.MembershipSecretName,
+					Namespace: workload.DefaultMembershipDataNamespace,
 				},
 			}
 
