@@ -95,12 +95,12 @@ func main() {
 	defer gkehubClient.Close()
 
 	gkeClient := gke.NewClient(gkehubClient)
-	if err = (&controllers.GCPClusterReconciler{
-		Client:                    mgr.GetClient(),
-		Logger:                    ctrl.Log.WithName("gcp-cluster-reconciler"),
-		MembershipSecretNamespace: controllers.DefaultMembershipSecretNamespace,
-		GKEMembershipClient:       gkeClient,
-	}).SetupWithManager(mgr); err != nil {
+	reconciler := controllers.NewGCPClusterReconciler(
+		controllers.DefaultMembershipSecretNamespace,
+		mgr.GetClient(),
+		gkeClient,
+	)
+	if err = reconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GCPCluster")
 		os.Exit(1)
 	}

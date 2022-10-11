@@ -31,6 +31,7 @@ helm repo add jetstack https://charts.jetstack.io
 helm repo update
 helm upgrade --install \
   cert-manager jetstack/cert-manager \
+  --kubeconfig="$HOME/.kube/$CLUSTER.yml" \
   --namespace cert-manager \
   --create-namespace \
   --version v1.8.0 \
@@ -40,7 +41,7 @@ helm upgrade --install \
 $KUBECTL apply -f "${SCRIPT_DIR}/assets/cluster-issuer.yaml"
 
 export CLUSTER_TOPOLOGY=true
-clusterctl init --infrastructure docker || true
+clusterctl init --infrastructure docker --kubeconfig="$HOME/.kube/$CLUSTER.yml" || true
 
 echo "---> Waiting for CAPI controller deployments to be ready"
 

@@ -96,15 +96,6 @@ deploy-crds-on-workload: kind
 test-unit: ginkgo generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" $(GINKGO) -p --nodes 8 -r -randomize-all --randomize-suites --skip-package=tests ./...
 
-.PHONY: cleanup-gkehub
-cleanup-gkehub: auth-gkehub
-	gcloud container hub memberships --quiet --project $(GCP_PROJECT_ID) delete acceptance-workload-cluster
-
-.PHONY: auth-gkehub
-auth-gkehub:
-	@echo -n "$(B64_GOOGLE_APPLICATION_CREDENTIALS)" | base64 -d > "$(HOME)/gcp-token.json" && \
-		gcloud auth activate-service-account --key-file="$(HOME)/gcp-token.json"
-
 .PHONY: run-acceptance-tests
 run-acceptance-tests:
 	$(eval GOOGLE_APPLICATION_CREDENTIALS=$(shell ${PWD}/scripts/create-gcp-credentials-file.sh))
@@ -114,7 +105,7 @@ run-acceptance-tests:
 
 .PHONY: test-acceptance
 test-acceptance: KUBECONFIG=$(HOME)/.kube/$(CLUSTER).yml
-test-acceptance: ensure-gcp-envs ginkgo deploy-acceptance-cluster run-acceptance-tests cleanup-gkehub ## Run acceptance testst
+test-acceptance: ensure-gcp-envs ginkgo deploy-acceptance-cluster run-acceptance-tests ## Run acceptance testst
 
 .PHONY: test-integration
 test-integration: ginkgo ensure-gcp-envs envtest ## Run integration tests
