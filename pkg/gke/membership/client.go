@@ -79,7 +79,7 @@ func (c *Client) Unregister(ctx context.Context, cluster *capg.GCPCluster) error
 
 	err = op.Wait(ctx)
 	if err != nil {
-		logger.Error(err, "create membership operation failed")
+		logger.Error(err, "delete membership operation failed")
 		return nil
 	}
 
