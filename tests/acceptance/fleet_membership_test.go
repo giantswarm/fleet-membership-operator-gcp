@@ -80,7 +80,7 @@ var _ = Describe("Fleet Membership", func() {
 		}, "120s").Should(Succeed())
 
 		data := membershipSecret.Data[workload.SecretKeyGoogleApplicationCredentials]
-		var actualMembership types.Membership
+		var actualMembership types.MembershipData
 		Expect(json.Unmarshal(data, &actualMembership)).To(Succeed())
 		Expect(actualMembership.IdentityProvider).NotTo(BeEmpty())
 		Expect(actualMembership.WorkloadIdentityPool).NotTo(BeEmpty())

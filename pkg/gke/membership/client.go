@@ -12,6 +12,8 @@ import (
 	"google.golang.org/api/googleapi"
 	capg "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/giantswarm/fleet-membership-operator-gcp/types"
 )
 
 const (
@@ -28,7 +30,7 @@ func NewClient(client *gkehub.GkeHubMembershipClient) *Client {
 	}
 }
 
-func (c *Client) Register(ctx context.Context, cluster *capg.GCPCluster, oidcJwks []byte) (*gkehubpb.Membership, error) {
+func (c *Client) Register(ctx context.Context, cluster *capg.GCPCluster, oidcJwks []byte) (types.MembershipData, error) {
 	logger := c.getLogger(ctx)
 	logger.Info("registering membership")
 	defer logger.Info("done registering membership")
@@ -48,15 +50,15 @@ func (c *Client) Register(ctx context.Context, cluster *capg.GCPCluster, oidcJwk
 	}
 	if err != nil {
 		logger.Error(err, "failed to create membership")
-		return nil, err
+		return types.MembershipData{}, err
 	}
 
 	registeredMembership, err := op.Wait(ctx)
 	if err != nil {
 		logger.Error(err, "create membership operation failed")
-		return nil, err
+		return types.MembershipData{}, err
 	}
-	return registeredMembership, err
+	return toMembershipData(registeredMembership), err
 }
 
 func (c *Client) Unregister(ctx context.Context, cluster *capg.GCPCluster) error {
@@ -86,12 +88,17 @@ func (c *Client) Unregister(ctx context.Context, cluster *capg.GCPCluster) error
 	return nil
 }
 
-func (c *Client) getMembership(ctx context.Context, cluster *capg.GCPCluster) (*gkehubpb.Membership, error) {
+func (c *Client) getMembership(ctx context.Context, cluster *capg.GCPCluster) (types.MembershipData, error) {
 	req := &gkehubpb.GetMembershipRequest{
 		Name: generateMembershipName(cluster),
 	}
 
-	return c.gkeClient.GetMembership(ctx, req)
+	membership, err := c.gkeClient.GetMembership(ctx, req)
+	if err != nil {
+		return types.MembershipData{}, err
+	}
+
+	return toMembershipData(membership), nil
 }
 
 func (c *Client) getLogger(ctx context.Context) logr.Logger {
@@ -111,6 +118,13 @@ func generateMembership(cluster *capg.GCPCluster, oidcJwks []byte) *gkehubpb.Mem
 	}
 
 	return membership
+}
+
+func toMembershipData(membership *gkehubpb.Membership) types.MembershipData {
+	return types.MembershipData{
+		WorkloadIdentityPool: membership.Authority.WorkloadIdentityPool,
+		IdentityProvider:     membership.Authority.IdentityProvider,
+	}
 }
 
 func generateMembershipName(cluster *capg.GCPCluster) string {

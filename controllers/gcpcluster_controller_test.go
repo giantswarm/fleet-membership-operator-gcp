@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	gkehubpb "cloud.google.com/go/gkehub/apiv1beta1/gkehubpb"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -23,7 +22,6 @@ import (
 
 	"github.com/giantswarm/fleet-membership-operator-gcp/controllers"
 	"github.com/giantswarm/fleet-membership-operator-gcp/controllers/controllersfakes"
-	"github.com/giantswarm/fleet-membership-operator-gcp/pkg/gke/membership"
 	"github.com/giantswarm/fleet-membership-operator-gcp/pkg/workload"
 	"github.com/giantswarm/fleet-membership-operator-gcp/tests"
 	"github.com/giantswarm/fleet-membership-operator-gcp/types"
@@ -111,14 +109,9 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 		}
 		Expect(k8sClient.Create(ctx, kubeconfigSecret)).To(Succeed())
 
-		fakeMembership := &gkehubpb.Membership{
-			Name: "/project/the-project/locations/global/membership/the-membership",
-			Authority: &gkehubpb.Authority{
-				Issuer:               membership.KubernetesIssuer,
-				WorkloadIdentityPool: "the-workload-id-pool",
-				IdentityProvider:     "the-identity-provider",
-				OidcJwks:             []byte("the jwks"),
-			},
+		fakeMembership := types.MembershipData{
+			WorkloadIdentityPool: "the-workload-id-pool",
+			IdentityProvider:     "the-identity-provider",
 		}
 		fakeGKEClient = new(controllersfakes.FakeGKEMembershipClient)
 		fakeGKEClient.RegisterReturns(fakeMembership, nil)
@@ -165,7 +158,7 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 
 		data := secret.Data[workload.SecretKeyGoogleApplicationCredentials]
 
-		var actualMembership types.Membership
+		var actualMembership types.MembershipData
 		Expect(json.Unmarshal(data, &actualMembership)).To(Succeed())
 
 		Expect(actualMembership.WorkloadIdentityPool).To(Equal("the-workload-id-pool"))
@@ -308,7 +301,7 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 	When("the membership client fails", func() {
 		BeforeEach(func() {
 			oops := errors.New("something went wrong")
-			fakeGKEClient.RegisterReturns(nil, oops)
+			fakeGKEClient.RegisterReturns(types.MembershipData{}, oops)
 		})
 
 		It("should return an error", func() {

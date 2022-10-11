@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"cloud.google.com/go/gkehub/apiv1beta1/gkehubpb"
 	"github.com/go-logr/logr"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -15,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/giantswarm/fleet-membership-operator-gcp/pkg/workload"
+	"github.com/giantswarm/fleet-membership-operator-gcp/types"
 
 	capg "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
 	capi "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
@@ -29,7 +29,7 @@ const (
 
 //counterfeiter:generate . GKEMembershipClient
 type GKEMembershipClient interface {
-	Register(ctx context.Context, cluster *capg.GCPCluster, jwks []byte) (*gkehubpb.Membership, error)
+	Register(ctx context.Context, cluster *capg.GCPCluster, jwks []byte) (types.MembershipData, error)
 	Unregister(ctx context.Context, cluster *capg.GCPCluster) error
 }
 

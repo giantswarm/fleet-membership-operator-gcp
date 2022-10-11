@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 
-	"cloud.google.com/go/gkehub/apiv1beta1/gkehubpb"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,11 +61,8 @@ func (c *Cluster) GetOIDCJWKS() ([]byte, error) {
 	return body, nil
 }
 
-func (c *Cluster) SaveMembershipData(ctx context.Context, namespace string, membership *gkehubpb.Membership) error {
-	membershipJson, err := json.Marshal(types.Membership{
-		IdentityProvider:     membership.Authority.IdentityProvider,
-		WorkloadIdentityPool: membership.Authority.WorkloadIdentityPool,
-	})
+func (c *Cluster) SaveMembershipData(ctx context.Context, namespace string, membership types.MembershipData) error {
+	membershipJson, err := json.Marshal(membership)
 	if err != nil {
 		return err
 	}
