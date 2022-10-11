@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/giantswarm/fleet-membership-operator-gcp/controllers"
+	"github.com/giantswarm/fleet-membership-operator-gcp/pkg/workload"
 	"github.com/giantswarm/fleet-membership-operator-gcp/types"
 )
 
@@ -56,8 +57,8 @@ var _ = Describe("Fleet Membership", func() {
 	AfterEach(func() {
 		membershipSecret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      controllers.MembershipSecretName,
-				Namespace: controllers.DefaultMembershipSecretNamespace,
+				Name:      workload.MembershipSecretName,
+				Namespace: workload.DefaultMembershipDataNamespace,
 			},
 		}
 		err := workloadClient.Delete(ctx, membershipSecret)
@@ -71,15 +72,15 @@ var _ = Describe("Fleet Membership", func() {
 		membershipSecret := &corev1.Secret{}
 		Eventually(func() error {
 			err := workloadClient.Get(ctx, client.ObjectKey{
-				Name:      controllers.MembershipSecretName,
-				Namespace: controllers.DefaultMembershipSecretNamespace,
+				Name:      workload.MembershipSecretName,
+				Namespace: workload.DefaultMembershipDataNamespace,
 			}, membershipSecret)
 
 			return err
 		}, "120s").Should(Succeed())
 
-		data := membershipSecret.Data[controllers.SecretKeyGoogleApplicationCredentials]
-		var actualMembership types.Membership
+		data := membershipSecret.Data[workload.SecretKeyGoogleApplicationCredentials]
+		var actualMembership types.MembershipData
 		Expect(json.Unmarshal(data, &actualMembership)).To(Succeed())
 		Expect(actualMembership.IdentityProvider).NotTo(BeEmpty())
 		Expect(actualMembership.WorkloadIdentityPool).NotTo(BeEmpty())

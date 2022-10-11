@@ -5,14 +5,14 @@ import (
 	"context"
 	"sync"
 
-	"cloud.google.com/go/gkehub/apiv1beta1/gkehubpb"
 	"sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
 
 	"github.com/giantswarm/fleet-membership-operator-gcp/controllers"
+	"github.com/giantswarm/fleet-membership-operator-gcp/types"
 )
 
 type FakeGKEMembershipClient struct {
-	RegisterStub        func(context.Context, *v1beta1.GCPCluster, []byte) (*gkehubpb.Membership, error)
+	RegisterStub        func(context.Context, *v1beta1.GCPCluster, []byte) (types.MembershipData, error)
 	registerMutex       sync.RWMutex
 	registerArgsForCall []struct {
 		arg1 context.Context
@@ -20,11 +20,11 @@ type FakeGKEMembershipClient struct {
 		arg3 []byte
 	}
 	registerReturns struct {
-		result1 *gkehubpb.Membership
+		result1 types.MembershipData
 		result2 error
 	}
 	registerReturnsOnCall map[int]struct {
-		result1 *gkehubpb.Membership
+		result1 types.MembershipData
 		result2 error
 	}
 	UnregisterStub        func(context.Context, *v1beta1.GCPCluster) error
@@ -43,7 +43,7 @@ type FakeGKEMembershipClient struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeGKEMembershipClient) Register(arg1 context.Context, arg2 *v1beta1.GCPCluster, arg3 []byte) (*gkehubpb.Membership, error) {
+func (fake *FakeGKEMembershipClient) Register(arg1 context.Context, arg2 *v1beta1.GCPCluster, arg3 []byte) (types.MembershipData, error) {
 	var arg3Copy []byte
 	if arg3 != nil {
 		arg3Copy = make([]byte, len(arg3))
@@ -75,7 +75,7 @@ func (fake *FakeGKEMembershipClient) RegisterCallCount() int {
 	return len(fake.registerArgsForCall)
 }
 
-func (fake *FakeGKEMembershipClient) RegisterCalls(stub func(context.Context, *v1beta1.GCPCluster, []byte) (*gkehubpb.Membership, error)) {
+func (fake *FakeGKEMembershipClient) RegisterCalls(stub func(context.Context, *v1beta1.GCPCluster, []byte) (types.MembershipData, error)) {
 	fake.registerMutex.Lock()
 	defer fake.registerMutex.Unlock()
 	fake.RegisterStub = stub
@@ -88,28 +88,28 @@ func (fake *FakeGKEMembershipClient) RegisterArgsForCall(i int) (context.Context
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *FakeGKEMembershipClient) RegisterReturns(result1 *gkehubpb.Membership, result2 error) {
+func (fake *FakeGKEMembershipClient) RegisterReturns(result1 types.MembershipData, result2 error) {
 	fake.registerMutex.Lock()
 	defer fake.registerMutex.Unlock()
 	fake.RegisterStub = nil
 	fake.registerReturns = struct {
-		result1 *gkehubpb.Membership
+		result1 types.MembershipData
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeGKEMembershipClient) RegisterReturnsOnCall(i int, result1 *gkehubpb.Membership, result2 error) {
+func (fake *FakeGKEMembershipClient) RegisterReturnsOnCall(i int, result1 types.MembershipData, result2 error) {
 	fake.registerMutex.Lock()
 	defer fake.registerMutex.Unlock()
 	fake.RegisterStub = nil
 	if fake.registerReturnsOnCall == nil {
 		fake.registerReturnsOnCall = make(map[int]struct {
-			result1 *gkehubpb.Membership
+			result1 types.MembershipData
 			result2 error
 		})
 	}
 	fake.registerReturnsOnCall[i] = struct {
-		result1 *gkehubpb.Membership
+		result1 types.MembershipData
 		result2 error
 	}{result1, result2}
 }

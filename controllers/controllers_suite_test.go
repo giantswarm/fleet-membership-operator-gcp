@@ -27,7 +27,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"github.com/giantswarm/fleet-membership-operator-gcp/controllers"
+	"github.com/giantswarm/fleet-membership-operator-gcp/pkg/workload"
 	"github.com/giantswarm/fleet-membership-operator-gcp/tests"
 	//+kubebuilder:scaffold:imports
 )
@@ -110,16 +110,11 @@ var _ = AfterEach(func() {
 
 func ensureNamespaceExists(ctx context.Context) error {
 	namespaceObj := &corev1.Namespace{}
+	namespaceObj.Name = workload.DefaultMembershipDataNamespace
 
-	err := k8sClient.Get(ctx, client.ObjectKey{
-		Name: controllers.DefaultMembershipSecretNamespace,
-	}, namespaceObj)
-
-	if k8serrors.IsNotFound(err) {
-		namespaceObj.Name = controllers.DefaultMembershipSecretNamespace
-		err = k8sClient.Create(context.Background(), namespaceObj)
-
-		return err
+	err := k8sClient.Create(ctx, namespaceObj)
+	if k8serrors.IsAlreadyExists(err) {
+		return nil
 	}
 
 	return err

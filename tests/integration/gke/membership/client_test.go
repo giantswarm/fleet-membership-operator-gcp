@@ -83,10 +83,8 @@ var _ = Describe("Client", func() {
 			Expect(fleetMembership.Authority.IdentityProvider).NotTo(BeEmpty())
 			Expect(fleetMembership.Authority.WorkloadIdentityPool).NotTo(BeEmpty())
 
-			Expect(actualMembership).NotTo(BeNil())
-			Expect(actualMembership.Authority).NotTo(BeNil())
-			Expect(actualMembership.Authority.WorkloadIdentityPool).To(Equal(fleetMembership.Authority.WorkloadIdentityPool))
-			Expect(actualMembership.Authority.IdentityProvider).To(Equal(fleetMembership.Authority.IdentityProvider))
+			Expect(actualMembership.WorkloadIdentityPool).To(Equal(fleetMembership.Authority.WorkloadIdentityPool))
+			Expect(actualMembership.IdentityProvider).To(Equal(fleetMembership.Authority.IdentityProvider))
 		})
 
 		When("the membership already exists", func() {
@@ -98,10 +96,8 @@ var _ = Describe("Client", func() {
 			It("does not return an error", func() {
 				actualMembership, err := client.Register(ctx, cluster, jwks)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(actualMembership).NotTo(BeNil())
-				Expect(actualMembership.Authority).NotTo(BeNil())
-				Expect(actualMembership.Authority.IdentityProvider).NotTo(BeEmpty())
-				Expect(actualMembership.Authority.WorkloadIdentityPool).NotTo(BeEmpty())
+				Expect(actualMembership.IdentityProvider).NotTo(BeEmpty())
+				Expect(actualMembership.WorkloadIdentityPool).NotTo(BeEmpty())
 			})
 		})
 
@@ -111,9 +107,8 @@ var _ = Describe("Client", func() {
 			})
 
 			It("fails to register the membership", func() {
-				actualMembership, err := client.Register(ctx, cluster, jwks)
+				_, err := client.Register(ctx, cluster, jwks)
 				Expect(err).To(HaveOccurred())
-				Expect(actualMembership).To(BeNil())
 			})
 		})
 
@@ -123,9 +118,8 @@ var _ = Describe("Client", func() {
 			})
 
 			It("fails to register the membership", func() {
-				actualMembership, err := client.Register(ctx, cluster, jwks)
+				_, err := client.Register(ctx, cluster, jwks)
 				Expect(err).To(BeGoogleAPIErrorWithStatus(http.StatusForbidden))
-				Expect(actualMembership).To(BeNil())
 			})
 		})
 	})
