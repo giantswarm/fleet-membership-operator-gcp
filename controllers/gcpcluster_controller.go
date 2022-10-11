@@ -56,8 +56,7 @@ func NewGCPClusterReconciler(membershipSecretNamespace string, runtimeClient cli
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=gcpclusters/finalizers,verbs=update
 
 func (r *GCPClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-	logger = logger.WithName("gcpcluster-reconciler")
+	logger := r.getLogger(ctx)
 	logger.Info("Reconciling cluster")
 	defer logger.Info("Finished reconciling cluster")
 
@@ -75,13 +74,15 @@ func (r *GCPClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	if !gcpCluster.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(ctx, logger, gcpCluster)
+		return r.reconcileDelete(ctx, gcpCluster)
 	}
 
-	return r.reconcileNormal(ctx, logger, gcpCluster)
+	return r.reconcileNormal(ctx, gcpCluster)
 }
 
-func (r *GCPClusterReconciler) reconcileDelete(ctx context.Context, logger logr.Logger, gcpCluster *capg.GCPCluster) (reconcile.Result, error) {
+func (r *GCPClusterReconciler) reconcileDelete(ctx context.Context, gcpCluster *capg.GCPCluster) (reconcile.Result, error) {
+	logger := r.getLogger(ctx)
+
 	err := r.gkeMembershipClient.Unregister(ctx, gcpCluster)
 	if err != nil {
 		logger.Error(err, "failed to unregister cluster membership")
@@ -96,7 +97,9 @@ func (r *GCPClusterReconciler) reconcileDelete(ctx context.Context, logger logr.
 	return reconcile.Result{}, nil
 }
 
-func (r *GCPClusterReconciler) reconcileNormal(ctx context.Context, logger logr.Logger, cluster *capg.GCPCluster) (reconcile.Result, error) {
+func (r *GCPClusterReconciler) reconcileNormal(ctx context.Context, cluster *capg.GCPCluster) (reconcile.Result, error) {
+	logger := r.getLogger(ctx)
+
 	if !cluster.Status.Ready {
 		message := fmt.Sprintf("skipping Cluster %s because its not yet ready", cluster.Name)
 		logger.Info(message)
@@ -189,4 +192,9 @@ func (r *GCPClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&capg.GCPCluster{}).
 		Complete(r)
+}
+
+func (r *GCPClusterReconciler) getLogger(ctx context.Context) logr.Logger {
+	logger := log.FromContext(ctx)
+	return logger.WithName("gcpcluster-reconciler")
 }
