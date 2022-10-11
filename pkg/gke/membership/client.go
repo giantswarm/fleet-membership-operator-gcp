@@ -73,7 +73,7 @@ func (c *Client) Unregister(ctx context.Context, cluster *capg.GCPCluster) error
 		return nil
 	}
 	if err != nil {
-		logger.Error(err, "failed to create membership")
+		logger.Error(err, "failed to delete membership")
 		return err
 	}
 
