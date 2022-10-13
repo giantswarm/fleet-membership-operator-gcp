@@ -61,9 +61,6 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterName,
 				Namespace: namespace,
-				Annotations: map[string]string{
-					controllers.AnnotationWorkloadIdentityEnabled: "true",
-				},
 			},
 			Spec: capg.GCPClusterSpec{
 				Project: gcpProject,
@@ -163,30 +160,6 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 
 		Expect(actualMembership.WorkloadIdentityPool).To(Equal("the-workload-id-pool"))
 		Expect(actualMembership.IdentityProvider).To(Equal("the-identity-provider"))
-	})
-
-	When("workload identity is not enabled", func() {
-		BeforeEach(func() {
-			cluster := gcpCluster.DeepCopy()
-			cluster.Annotations = map[string]string{}
-
-			Expect(k8sClient.Update(ctx, cluster)).To(Succeed())
-		})
-
-		It("should return an error and skip cluster", func() {
-			Expect(reconcilErr).ToNot(HaveOccurred())
-		})
-
-		It("should not create a membership secret", func() {
-			secret := &corev1.Secret{}
-			err := k8sClient.Get(ctx, k8stypes.NamespacedName{
-				Name:      workload.MembershipSecretName,
-				Namespace: namespace,
-			}, secret)
-
-			Expect(err).To(HaveOccurred())
-			Expect(k8serrors.IsNotFound(err)).To(BeTrue())
-		})
 	})
 
 	When("the cluster is marked for deletion", func() {
