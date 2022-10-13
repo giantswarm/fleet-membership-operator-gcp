@@ -13,7 +13,6 @@ import (
 	capg "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/giantswarm/fleet-membership-operator-gcp/controllers"
 	"github.com/giantswarm/fleet-membership-operator-gcp/pkg/workload"
 	"github.com/giantswarm/fleet-membership-operator-gcp/types"
 )
@@ -35,9 +34,6 @@ var _ = Describe("Fleet Membership", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterName,
 				Namespace: "giantswarm",
-				Annotations: map[string]string{
-					controllers.AnnotationWorkloadIdentityEnabled: "true",
-				},
 			},
 			Spec: capg.GCPClusterSpec{
 				Project: gcpProject,

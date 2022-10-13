@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Release app to `gcp-app-collection`
+
+### Changed
+
+- Remove annotation for enabling workload identity. This will apply it to all clusters. We do this because default apps rely on workload-idenity
+
 ## [0.1.0] - 2022-10-11
 
 ### Added

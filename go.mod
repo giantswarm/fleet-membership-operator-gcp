@@ -8,6 +8,9 @@ replace (
 
 	// Fixes sonatype-2019-0890 non-CVE vulnerability
 	github.com/pkg/sftp v1.10.1 => github.com/pkg/sftp v1.13.4
+
+	// Fix sonatype-2022-32149 vulnerability
+	golang.org/x/text v0.3.7 => golang.org/x/text v0.3.8
 )
 
 require (
@@ -16,8 +19,8 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/googleapis/gax-go/v2 v2.5.1
 	github.com/lestrrat-go/jwx/v2 v2.0.6
-	github.com/onsi/ginkgo/v2 v2.2.0
-	github.com/onsi/gomega v1.20.2
+	github.com/onsi/ginkgo/v2 v2.3.1
+	github.com/onsi/gomega v1.22.0
 	google.golang.org/api v0.98.0
 	k8s.io/api v0.25.2
 	k8s.io/apimachinery v0.25.2

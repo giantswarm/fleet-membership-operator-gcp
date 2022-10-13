@@ -21,8 +21,6 @@ import (
 )
 
 const (
-	AnnotationWorkloadIdentityEnabled = "giantswarm.io/workload-identity-enabled"
-
 	FinalizerMembership  = "fleet-membership-operator-gcp.giantswarm.io/finalizer"
 	SuffixMembershipName = "workload-identity"
 )
@@ -64,12 +62,6 @@ func (r *GCPClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	err := r.runtimeClient.Get(ctx, req.NamespacedName, gcpCluster)
 	if err != nil {
 		logger.Error(err, "could not get gcp cluster")
-		return reconcile.Result{}, nil
-	}
-
-	if !r.hasWorkloadIdentityEnabled(gcpCluster) {
-		message := fmt.Sprintf("skipping Cluster %s because workload identity is not enabled", gcpCluster.Name)
-		logger.Info(message)
 		return reconcile.Result{}, nil
 	}
 
@@ -180,11 +172,6 @@ func (r *GCPClusterReconciler) removeFinalizer(ctx context.Context, cluster *cap
 	originalCluster := cluster.DeepCopy()
 	controllerutil.RemoveFinalizer(cluster, FinalizerMembership)
 	return r.runtimeClient.Patch(ctx, cluster, client.MergeFrom(originalCluster))
-}
-
-func (r *GCPClusterReconciler) hasWorkloadIdentityEnabled(cluster *capg.GCPCluster) bool {
-	_, exists := cluster.Annotations[AnnotationWorkloadIdentityEnabled]
-	return exists
 }
 
 // SetupWithManager sets up the controller with the Manager.
