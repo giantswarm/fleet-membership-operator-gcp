@@ -8,6 +8,9 @@ replace (
 
 	// Fixes sonatype-2019-0890 non-CVE vulnerability
 	github.com/pkg/sftp v1.10.1 => github.com/pkg/sftp v1.13.4
+
+	// Fix sonatype-2022-32149 vulnerability
+	golang.org/x/text v0.3.7 => golang.org/x/text v0.3.8
 )
 
 require (
